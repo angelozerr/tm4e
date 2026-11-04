@@ -17,11 +17,8 @@
 package org.eclipse.tm4e.core.internal.grammar;
 
 import static java.lang.System.Logger.Level.TRACE;
-import static org.eclipse.tm4e.core.internal.utils.MoreCollections.*;
-
 import java.lang.System.Logger;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
@@ -31,6 +28,7 @@ import org.eclipse.tm4e.core.grammar.IToken;
 import org.eclipse.tm4e.core.internal.grammar.tokenattrs.EncodedTokenAttributes;
 import org.eclipse.tm4e.core.internal.grammar.tokenattrs.OptionalStandardTokenType;
 import org.eclipse.tm4e.core.internal.theme.FontStyle;
+import org.eclipse.tm4e.core.internal.utils.IntArrayList;
 import org.eclipse.tm4e.core.internal.utils.StringUtils;
 
 /**
@@ -129,7 +127,7 @@ public final class LineTokens {
 	/**
 	 * used only if `emitBinaryTokens` is true.
 	 */
-	private final List<Integer> _binaryTokens;
+	private final IntArrayList _binaryTokens;
 
 	private int _lastTokenEndIndex = 0;
 	private @Nullable String _currentGrammarScope; // custom tm4e code - not from upstream (for TMPartitioner)
@@ -151,10 +149,10 @@ public final class LineTokens {
 		this._mergeConsecutiveTokensWithEqualMetadata = this._emitBinaryTokens && !StringUtils.containsRTL(lineText);
 		if (this._emitBinaryTokens) {
 			this._tokens = EMPTY_DEQUE;
-			this._binaryTokens = new ArrayList<>();
+			this._binaryTokens = new IntArrayList();
 		} else {
 			this._tokens = new ArrayDeque<>();
-			this._binaryTokens = Collections.emptyList();
+			this._binaryTokens = new IntArrayList(0);
 		}
 		this.balancedBracketSelectors = balancedBracketSelectors;
 	}
@@ -211,7 +209,7 @@ public final class LineTokens {
 			}
 
 			if (this._mergeConsecutiveTokensWithEqualMetadata && !this._binaryTokens.isEmpty()
-					&& getLastElement(this._binaryTokens) == metadata) {
+					&& this._binaryTokens.last() == metadata) {
 				// no need to push a token with the same metadata
 				this._lastTokenEndIndex = endIndex;
 				return;
@@ -268,18 +266,17 @@ public final class LineTokens {
 	}
 
 	int[] getBinaryResult(final StateStack stack, final int lineLength) {
-		if (!this._binaryTokens.isEmpty() && getElementAt(this._binaryTokens, -2) == lineLength - 1) {
+		if (!this._binaryTokens.isEmpty() && this._binaryTokens.get(-2) == lineLength - 1) {
 			// pop produced token for newline
-			removeLastElement(this._binaryTokens);
-			removeLastElement(this._binaryTokens);
+			this._binaryTokens.removeLast(2);
 		}
 
 		if (this._binaryTokens.isEmpty()) {
 			this._lastTokenEndIndex = -1;
 			this.produce(stack, lineLength);
-			this._binaryTokens.set(_binaryTokens.size() - 2, 0);
+			this._binaryTokens.set(-2, 0);
 		}
 
-		return _binaryTokens.stream().mapToInt(Integer::intValue).toArray();
+		return this._binaryTokens.toArray();
 	}
 }
